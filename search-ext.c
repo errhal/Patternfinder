@@ -3,6 +3,7 @@
 #include <string.h>
 
 int *kmp_search(char *, char *, int *, int, int);
+
 int read_buffer(char *, FILE *, int);
 
 int main() {
@@ -14,7 +15,7 @@ int main() {
     FILE *file;
     char *buffer;    // current loaded text from file
     char *pattern = malloc((max_pattern_size + 1) * sizeof(char)), c;
-    int coverage = 0, file_size = 0, buffer_read = 0;
+    int coverage = 0, file_size = 0, buffer_read = 0, *alphabet = calloc(sizeof(int), 255);
 
     printf("Load text file: \n");
     scanf("%s", filename);
@@ -56,18 +57,24 @@ int main() {
             buffer_read = read_buffer(buffer, file, max_frame);
             do {
                 file_size += buffer_read;
+                for (i = 0; i < buffer_read; i++) {
+                    if ((buffer[i] > 96 && buffer[i] < 123) || (buffer[i] > 64 && buffer[i] < 91)) {
+                        alphabet[buffer[i]]++;
+                    }
+                }
+
                 tmp_positions = kmp_search(buffer, pattern, &partial_positions_count, max_frame, current_offset);
                 while (positions_count + partial_positions_count > max_positions_count) {
                     max_positions_count *= 2;
                     positions = realloc(positions, max_positions_count * sizeof(*positions));
-                    if(positions == NULL) {
+                    if (positions == NULL) {
                         printf("It's impossible to allocate more memory for positions array!");
                         return -1;
                     }
                 }
                 memcpy(&positions[positions_count], tmp_positions, partial_positions_count * sizeof(*positions));
-                for(i = 1; i < partial_positions_count; i++) {
-                    coverage += tmp_positions[i] - tmp_positions[i-1] < pattern_size ? tmp_positions[i] - tmp_positions[i-1] : pattern_size;
+                for (i = 1; i < partial_positions_count; i++) {
+                    coverage += tmp_positions[i] - tmp_positions[i - 1] < pattern_size ? tmp_positions[i] - tmp_positions[i - 1] : pattern_size;
                 }
                 coverage += pattern_size;
                 positions_count += partial_positions_count;
@@ -77,8 +84,20 @@ int main() {
                 fseek(file, current_offset, SEEK_SET); // inefficient SEEK
             } while ((buffer_read = read_buffer(buffer, file, max_frame) != NULL));
 
-            printf("Coverage of found patterns: %lf\n", (double) coverage/file_size);
-            printf("Number of patterns found: %d", positions_count);
+            printf("Coverage of found patterns: %lf\n", (double) coverage / file_size);
+            printf("Statistics of alphabet in passed text:\n");
+
+            for (i = 65; i <= 90; i++) {
+                printf("%c: %d\t", i, alphabet[i]);
+                if ((i - 64) % 4 == 0) printf("\n");
+            }
+            printf("\n\n");
+            for (i = 97; i <= 122; i++) {
+                printf("%c: %d\t", i, alphabet[i]);
+                if ((i - 96) % 4 == 0) printf("\n");
+            }
+
+            printf("\n\nNumber of patterns found: %d", positions_count);
             if (positions_count > 0) {
                 printf("\nPattern found on positions: ");
                 for (i = 0; i < positions_count; i++) {
