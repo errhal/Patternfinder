@@ -3,7 +3,6 @@
 #include <string.h>
 
 int *kmp_search(char *, char *, int *, int, int);
-
 int read_buffer(char *, FILE *, int);
 
 int main() {
@@ -15,6 +14,7 @@ int main() {
     FILE *file;
     char *buffer;    // current loaded text from file
     char *pattern = malloc((max_pattern_size + 1) * sizeof(char)), c;
+    int coverage = 0, file_size = 0, buffer_read = 0;
 
     printf("Load text file: \n");
     scanf("%s", filename);
@@ -53,8 +53,9 @@ int main() {
             positions = malloc(max_positions_count * sizeof(*positions));
             fseek(file, 0, SEEK_SET);
 
-            read_buffer(buffer, file, max_frame);
+            buffer_read = read_buffer(buffer, file, max_frame);
             do {
+                file_size += buffer_read;
                 tmp_positions = kmp_search(buffer, pattern, &partial_positions_count, max_frame, current_offset);
                 while (positions_count + partial_positions_count > max_positions_count) {
                     max_positions_count *= 2;
@@ -65,13 +66,18 @@ int main() {
                     }
                 }
                 memcpy(&positions[positions_count], tmp_positions, partial_positions_count * sizeof(*positions));
+                for(i = 1; i < partial_positions_count; i++) {
+                    coverage += tmp_positions[i] - tmp_positions[i-1] < pattern_size ? tmp_positions[i] - tmp_positions[i-1] : pattern_size;
+                }
+                coverage += pattern_size;
                 positions_count += partial_positions_count;
                 free(tmp_positions);
 
                 current_offset += max_frame - pattern_size;
                 fseek(file, current_offset, SEEK_SET); // inefficient SEEK
-            } while (read_buffer(buffer, file, max_frame) != NULL);
+            } while ((buffer_read = read_buffer(buffer, file, max_frame) != NULL));
 
+            printf("Coverage of found patterns: %lf\n", (double) coverage/file_size);
             printf("Number of patterns found: %d", positions_count);
             if (positions_count > 0) {
                 printf("\nPattern found on positions: ");
@@ -145,7 +151,7 @@ int *kmp_search(char *buffer, char *pattern, int *positions_count, int max_frame
 }
 
 int read_buffer(char *buffer, FILE *file, int length) {
-    int i = -1;
+    int i = -1, count = 0;
     char c;
 
     while ((++i < length - 1)) {
@@ -153,9 +159,11 @@ int read_buffer(char *buffer, FILE *file, int length) {
         if (c == EOF) {
             buffer[i] = 0x00;
             if (i == 0) return NULL;
-            return 0;
+            return count;
         }
         buffer[i] = c;
+        count++;
     }
     buffer[i] = 0x00;
+    return count;
 }
